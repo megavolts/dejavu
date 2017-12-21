@@ -145,7 +145,7 @@ def return_matches(hashes0, hashes):
     # Get an iteratable of all the hashes we need
     values = mapper.keys()
 
-    with self.cursor() as cur:
+    with cursor() as cur:
         for split_values in grouper(values, 1000):
             # Create our IN part of the query
             query = self.SELECT_MULTIPLE
