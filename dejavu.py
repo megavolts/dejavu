@@ -1,15 +1,15 @@
 #!/usr/bin/python
 
+import argparse
+import json
 import os
 import sys
-import json
 import warnings
-import argparse
+from argparse import RawTextHelpFormatter
 
 from dejavu import Dejavu
-from dejavu.recognize import FileRecognizer
-from dejavu.recognize import MicrophoneRecognizer
-from argparse import RawTextHelpFormatter
+from dejavuV2.recognize import FileRecognizer
+from dejavuV2.recognize import MicrophoneRecognizer
 
 warnings.filterwarnings("ignore")
 
