@@ -2,6 +2,8 @@ import multiprocessing
 import warnings
 import os
 import traceback
+import sys
+import pandas as pd
 
 
 warnings.filterwarnings("ignore")
@@ -44,6 +46,7 @@ def _fingerprint_worker(filename, limit=None, song_name=None):
 
     return song_name, result, file_hash
 
+
 def fingerprint_file(filepath, song_name=None):
     songname = decoder.path_to_songname(filepath)
     song_hash = decoder.unique_hash(filepath)
@@ -59,56 +62,61 @@ nprocesses=None
 path = folder
 extensions = '.mp3'
 
-# def fingerprint_directory(path, extensions, nprocesses=None):
-#     # Try to use the maximum amount of processes if not given.
-#     try:
-#         nprocesses = nprocesses or multiprocessing.cpu_count()
-#     except NotImplementedError:
-#         nprocesses = 1
-#     else:
-#         nprocesses = 1 if nprocesses <= 0 else nprocesses
-#
-#     pool = multiprocessing.Pool(nprocesses)
-#
-#     filenames_to_fingerprint = []
-#     for filename, _ in decoder.find_files(path, extensions):
-#
-#         # don't refingerprint already fingerprinted files
-#         if decoder.unique_hash(filename) in self.songhashes_set:
-#             print("%s already fingerprinted, continuing..." % filename)
-#             continue
-#
-#         filenames_to_fingerprint.append(filename)
-#
-#     # Prepare _fingerprint_worker input
-#     worker_input = zip(filenames_to_fingerprint,
-#                        [self.limit] * len(filenames_to_fingerprint))
-#
-#     # Send off our tasks
-#     iterator = pool.imap_unordered(_fingerprint_worker,
-#                                    worker_input)
-#
-#     # Loop till we have all of them
-#     while True:
-#         try:
-#             song_name, hashes, file_hash = iterator.next()
-#         except multiprocessing.TimeoutError:
-#             continue
-#         except StopIteration:
-#             break
-#         except:
-#             print("Failed fingerprinting")
-#             # Print traceback because we can't reraise it here
-#             traceback.print_exc(file=sys.stdout)
-#         else:
-#             sid = self.db.insert_song(song_name, file_hash)
-#
-#             self.db.insert_hashes(sid, hashes)
-#             self.db.set_song_fingerprinted(sid)
-#             self.get_fingerprinted_songs()
-#
-#     pool.close()
-#     pool.join()
+fgdb = pd.DataFrame(columns=[])
+songdb = pd.DataFrame(columns=['sid', 'hash'])
+
+def fingerprint_directory(db, path, extensions, limit, nprocesses=None):
+    # Try to use the maximum amount of processes if not given.
+    try:
+        nprocesses = nprocesses or multiprocessing.cpu_count()
+    except NotImplementedError:
+        nprocesses = 1
+    else:
+        nprocesses = 1 if nprocesses <= 0 else nprocesses
+
+    pool = multiprocessing.Pool(nprocesses)
+
+    filenames_to_fingerprint = []
+    for filename, _ in decoder.find_files(path, extensions):
+
+        # # don't refingerprint already fingerprinted files
+        # if decoder.unique_hash(filename) in self.songhashes_set:
+        #     print("%s already fingerprinted, continuing..." % filename)
+        #     continue
+
+        filenames_to_fingerprint.append(filename)
+
+    # Prepare _fingerprint_worker input
+    worker_input = zip(filenames_to_fingerprint,
+                       [limit] * len(filenames_to_fingerprint))
+
+    # Send off our tasks
+    iterator = pool.imap_unordered(_fingerprint_worker,
+                                   worker_input)
+
+    # Loop till we have all of them
+    while True:
+        try:
+            song_name, hashes, file_hash = iterator.next()
+        except multiprocessing.TimeoutError:
+            continue
+        except StopIteration:
+            break
+        except:
+            print("Failed fingerprinting")
+            # Print traceback because we can't reraise it here
+            traceback.print_exc(file=sys.stdout)
+        else:
+            songdb.append({'a':song_name, 'b':file_hash})
+
+            sid = self.db.insert_song(song_name, file_hash)
+
+            self.db.insert_hashes(sid, hashes)
+            self.db.set_song_fingerprinted(sid)
+            self.get_fingerprinted_songs()
+
+    pool.close()
+    pool.join()
 
 
 

@@ -1,14 +1,11 @@
 
 from itertools import zip_longest
 import queue
-
-import MySQLdb as mysql
-from MySQLdb.cursors import DictCursor
-
+import pandas as pd
 from dejavu.database import Database
 
 
-class SQLDatabase(Database):
+class SQLDatabase(pd.DataFrame):
     """
     Queries:
 
@@ -43,8 +40,6 @@ class SQLDatabase(Database):
         from fingerprints natural join songs
         where fingerprints.hash = "08d3c833b71c60a7b620322ac0c0aba7bf5a3e73";
     """
-
-    type = "mysql"
 
     # tables
     FINGERPRINTS_TABLENAME = "fingerprints"
@@ -137,53 +132,52 @@ class SQLDatabase(Database):
         DELETE FROM %s WHERE %s = 0;
     """ % (SONGS_TABLENAME, FIELD_FINGERPRINTED)
 
-    def __init__(self, **options):
-        super(SQLDatabase, self).__init__()
-        self.cursor = cursor_factory(**options)
-        self._options = options
+    def __init__(self):
 
-    def after_fork(self):
-        # Clear the cursor cache, we don't want any stale connections from
-        # the previous process.
-        Cursor.clear_cache()
+    #
+    # def after_fork(self):
+    #     # Clear the cursor cache, we don't want any stale connections from
+    #     # the previous process.
+    #     Cursor.clear_cache()
 
-    def setup(self):
-        """
-        Creates any non-existing tables required for dejavu to function.
+    # def setup(self):
+    #     """
+    #     Creates any non-existing tables required for dejavu to function.
+    #
+    #     This also removes all songs that have been added but have no
+    #     fingerprints associated with them.
+    #     """
+    #     with self.cursor() as cur:
+    #         cur.execute(self.CREATE_SONGS_TABLE)
+    #         cur.execute(self.CREATE_FINGERPRINTS_TABLE)
+    #         cur.execute(self.DELETE_UNFINGERPRINTED)
 
-        This also removes all songs that have been added but have no
-        fingerprints associated with them.
-        """
-        with self.cursor() as cur:
-            cur.execute(self.CREATE_SONGS_TABLE)
-            cur.execute(self.CREATE_FINGERPRINTS_TABLE)
-            cur.execute(self.DELETE_UNFINGERPRINTED)
+    # def empty(self):
+    #     """
+    #     Drops tables created by dejavu and then creates them again
+    #     by calling `SQLDatabase.setup`.
+    #
+    #     .. warning:
+    #         This will result in a loss of data
+    #     """
+    #     with self.cursor() as cur:
+    #         cur.execute(self.DROP_FINGERPRINTS)
+    #         cur.execute(self.DROP_SONGS)
+    #
+    #     self.setup()
 
-    def empty(self):
-        """
-        Drops tables created by dejavu and then creates them again
-        by calling `SQLDatabase.setup`.
-
-        .. warning:
-            This will result in a loss of data
-        """
-        with self.cursor() as cur:
-            cur.execute(self.DROP_FINGERPRINTS)
-            cur.execute(self.DROP_SONGS)
-
-        self.setup()
-
-    def delete_unfingerprinted_songs(self):
-        """
-        Removes all songs that have no fingerprints associated with them.
-        """
-        with self.cursor() as cur:
-            cur.execute(self.DELETE_UNFINGERPRINTED)
+    # def delete_unfingerprinted_songs(self):
+    #     """
+    #     Removes all songs that have no fingerprints associated with them.
+    #     """
+    #     with self.cursor() as cur:
+    #         cur.execute(self.DELETE_UNFINGERPRINTED)
 
     def get_num_songs(self):
         """
         Returns number of songs the database has fingerprinted.
         """
+        return self.
         with self.cursor() as cur:
             cur.execute(self.SELECT_UNIQUE_SONG_IDS)
 
