@@ -7,6 +7,8 @@ warnings.filterwarnings("ignore")
 from dejavuV2 import decoder
 from dejavuV2 import fingerprint
 
+import logging
+
 
 def _fingerprint_worker(filename, limit=None, song_name=None):
     # Pool.imap sends arguments as tuples so we have to unpack
@@ -16,26 +18,28 @@ def _fingerprint_worker(filename, limit=None, song_name=None):
     except ValueError:
         pass
 
+    logger = logging.getLogger(__name__)
+
     songname, extension = os.path.splitext(os.path.basename(filename))
     song_name = song_name or songname
-    channels, Fs, file_hash = decoder.read(filename, limit)
+    channels, Fs, file_hash = decoder.read(filename, limit=limit)
     result = set()
     channel_amount = len(channels)
 
     for channeln, channel in enumerate(channels):
         # TODO: Remove prints or change them into optional logging.
-        print("Fingerprinting channel %d/%d for %s" % (channeln + 1,
-                                                       channel_amount,
-                                                       filename))
+        logger.info("Fingerprinting channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
         hashes = fingerprint.fingerprint(channel, Fs=Fs)
-        print("Finished channel %d/%d for %s" % (channeln + 1, channel_amount,
-                                                 filename))
+        logger.debug("Finished channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
         result |= set(hashes)
 
     return song_name, result, file_hash
 
 
 def fingerprint_file(filepath, limit=None, song_name=None):
+
+    logger = logging.getLogger(__name__)
+
     songname = decoder.path_to_songname(filepath)
     song_hash = decoder.unique_hash(filepath)
     song_name = song_name or songname
@@ -49,6 +53,9 @@ def fingerprint_file(filepath, limit=None, song_name=None):
 
 
 def fingerprint_directory(fgdb, songdb, path, extensions, limit, nprocesses=None):
+    logger = logging.getLogger(__name__)
+
+
     filenames_to_fingerprint = []
     for filename, _ in decoder.find_files(path, extensions):
         # # don't refingerprint already fingerprinted files
@@ -97,7 +104,6 @@ def align_matches(matches):
     largest = 0
     largest_count = 0
     for tup in matches:
-        print(matches)
         sid, diff = tup
         if diff not in diff_counter:
             diff_counter[diff] = {}
@@ -117,11 +123,13 @@ def align_matches(matches):
     return song_id
 
 
-def file_matches(source, target):
-    _, hashes_source, _ = fingerprint_file(source, limit=5)
-    _, hashes_target, _ = fingerprint_file(target, limit=20)
+def file_matches(source_filepath, target_filepath, limit=None):
+    _, hashes_source, _ = fingerprint_file(source_filepath, limit=limit)
+    _, hashes_target, _ = fingerprint_file(target_filepath, limit=limit)
+    logger = logging.getLogger(__name__)
 
     fgdb = pd.DataFrame(columns=['hash', 'sid', 'offset'])
+    logger.info("%d in %s" % (fgdb.__len__(), source_filepath))
     for hash, offset in hashes_target:
         fgdb = fgdb.append({'hash': hash, 'sid': 0, 'offset': offset}, ignore_index=True)
 

@@ -7,7 +7,7 @@ import sys
 import warnings
 from argparse import RawTextHelpFormatter
 
-from dejavu import Dejavu
+from dejavuV2 import Dejavu
 from dejavuV2.recognize import FileRecognizer
 from dejavuV2.recognize import MicrophoneRecognizer
 

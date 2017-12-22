@@ -1,14 +1,18 @@
 
-from pydub import AudioSegment
-from dejavu.decoder import path_to_songname
-from dejavu import Dejavu
-from dejavu.fingerprint import *
-import traceback
+import ast
 import fnmatch
-import os, re, ast
-import subprocess
-import random
 import logging
+import os
+import random
+import re
+import subprocess
+import traceback
+
+from pydub import AudioSegment
+
+from dejavuV2 import *
+from dejavuV2 import path_to_songname
+
 
 def set_seed(seed=None):
     """

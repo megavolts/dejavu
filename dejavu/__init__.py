@@ -1,10 +1,11 @@
-from dejavu.database import get_database, Database
-import dejavu.decoder as decoder
-from . import fingerprint
 import multiprocessing
 import os
-import traceback
 import sys
+import traceback
+
+import dejavuV2.decoder as decoder
+from dejavu import fingerprint
+from dejavuV2 import get_database, Database
 
 
 class Dejavu(object):

@@ -1,161 +1,90 @@
-import multiprocessing
-import warnings
 import os
-import traceback
+import shutil
+import dejavuV2
+import json
+import logging
+
+import unicodedata
+import re
 
 
-warnings.filterwarnings("ignore")
+import logging.config
+# Enable logging
+LOG_CFG = 'logging.json'
+if os.path.exists(LOG_CFG):
+    with open(LOG_CFG, 'rt') as f:
+        config = json.load(f)
+    logging.config.dictConfig(config)
+else:
+    logging.basicConfig(level=logging.DEBUG)
 
-folder = '/home/megavolts/git/dejavu/mp3/sample/air/'
-filepath = '/home/megavolts/git/dejavu/mp3/sample/air/The Virgin Suicides/01 Air feat. Gordon Tracks - Playground Love.mp3'
+logger = logging.getLogger(__name__)
 
-from dejavuV2 import decoder
-from dejavuV2 import fingerprint
-from itertools import zip_longest
+work_dir = '/home/megavolts/media/Music/0-to_sort/'
+#work_dir = '/run/media/megavolts/UNIMAK-1to/musics/0-sorted'
+flist = []
 
-
-limit = 5
-song_name = None
-
-
-def _fingerprint_worker(filename, limit=None, song_name=None):
-    # Pool.imap sends arguments as tuples so we have to unpack
-    # them ourself.
-    try:
-        filename, limit = filename
-    except ValueError:
-        pass
-
-    songname, extension = os.path.splitext(os.path.basename(filename))
-    song_name = song_name or songname
-    channels, Fs, file_hash = decoder.read(filename, limit)
-    result = set()
-    channel_amount = len(channels)
-
-    for channeln, channel in enumerate(channels):
-        # TODO: Remove prints or change them into optional logging.
-        print("Fingerprinting channel %d/%d for %s" % (channeln + 1,
-                                                       channel_amount,
-                                                       filename))
-        hashes = fingerprint.fingerprint(channel, Fs=Fs)
-        print("Finished channel %d/%d for %s" % (channeln + 1, channel_amount,
-                                                 filename))
-        result |= set(hashes)
-
-    return song_name, result, file_hash
-
-def fingerprint_file(filepath, song_name=None):
-    songname = decoder.path_to_songname(filepath)
-    song_hash = decoder.unique_hash(filepath)
-    song_name = song_name or songname
-    # don't refingerprint already fingerprinted files
-    song_name, hashes, file_hash = _fingerprint_worker(
-        filepath,
-        limit,
-        song_name=song_name
-    )
-
-nprocesses=None
-path = folder
-extensions = '.mp3'
-
-# def fingerprint_directory(path, extensions, nprocesses=None):
-#     # Try to use the maximum amount of processes if not given.
-#     try:
-#         nprocesses = nprocesses or multiprocessing.cpu_count()
-#     except NotImplementedError:
-#         nprocesses = 1
-#     else:
-#         nprocesses = 1 if nprocesses <= 0 else nprocesses
-#
-#     pool = multiprocessing.Pool(nprocesses)
-#
-#     filenames_to_fingerprint = []
-#     for filename, _ in decoder.find_files(path, extensions):
-#
-#         # don't refingerprint already fingerprinted files
-#         if decoder.unique_hash(filename) in self.songhashes_set:
-#             print("%s already fingerprinted, continuing..." % filename)
-#             continue
-#
-#         filenames_to_fingerprint.append(filename)
-#
-#     # Prepare _fingerprint_worker input
-#     worker_input = zip(filenames_to_fingerprint,
-#                        [self.limit] * len(filenames_to_fingerprint))
-#
-#     # Send off our tasks
-#     iterator = pool.imap_unordered(_fingerprint_worker,
-#                                    worker_input)
-#
-#     # Loop till we have all of them
-#     while True:
-#         try:
-#             song_name, hashes, file_hash = iterator.next()
-#         except multiprocessing.TimeoutError:
-#             continue
-#         except StopIteration:
-#             break
-#         except:
-#             print("Failed fingerprinting")
-#             # Print traceback because we can't reraise it here
-#             traceback.print_exc(file=sys.stdout)
-#         else:
-#             sid = self.db.insert_song(song_name, file_hash)
-#
-#             self.db.insert_hashes(sid, hashes)
-#             self.db.set_song_fingerprinted(sid)
-#             self.get_fingerprinted_songs()
-#
-#     pool.close()
-#     pool.join()
+for root, dirs, files in os.walk(work_dir, topdown=False):
+    for f in files:
+        rel_path = os.path.relpath(root, work_dir)
+        if f in ['desktop.ini', '.directory']:
+            abs_filepath = os.path.join(root, f)
+            os.remove(abs_filepath)
+            logger.info('Removing %s' % abs_filepath)
+        if f[0] == '.':
+            abs_filepath = os.path.join(root, f)
+            os.remove(abs_filepath)
+            logger.info('Removing %s' % abs_filepath)
+        else:
+            flist.append(os.path.join(rel_path, f))
 
 
-
-hashes0 = hashes
-
-for hash, offset in hashes:
-    values.append((hash, sid, offset))
-
-def grouper(iterable, n, fillvalue=None):
-    args = [iter(iterable)] * n
-    return ([_f for _f in values if _f] for values
-            in zip_longest(fillvalue=fillvalue, *args))
-
-
-
-def return_matches(hashes0, hashes):
+def detox(val):
     """
-    Return the (song_id, offset_diff) tuples associated with
-    a list of (sha1, sample_offset) values.
+    Normalizes string, converts to lowercase, removes non-alpha characters, but keep period (. and slahs)
+    and converts spaces to hyphens.
     """
-    # Create a dictionary of hash => offset pairs for later lookups
-    mapper = {}
-    for hash, offset in hashes:
-        mapper[hash.upper()] = offset
 
-    # Get an iteratable of all the hashes we need
-    values = mapper.keys()
+    val = unicodedata.normalize('NFKD', val).encode('ascii', 'ignore').decode().lower().replace(" ", "_")
+    val = re.sub('[^\w\s(?./)-]', '_', val).strip().lower().replace("_-_", "-")
+    return val
 
-    with self.cursor() as cur:
-        for split_values in grouper(values, 1000):
-            # Create our IN part of the query
-            query = self.SELECT_MULTIPLE
-            query = query % ', '.join(['UNHEX(%s)'] * len(split_values))
 
-            cur.execute(query, split_values)
+for f in flist:
+    source_filepath = os.path.join(work_dir, f)
+    target_filepath = os.path.join(work_dir, detox(f))
+    target_dirpath = os.path.dirname(target_filepath)
 
-            for hash, sid, offset in cur:
-                # (sid, db_offset - song_sampled_offset)
-                yield (sid, offset - mapper[hash])
+    if not os.path.isdir(target_dirpath):  # create a directory if there is none
+        os.makedirs(target_dirpath)
+        shutil.move(source_filepath, target_filepath)
+        print(source_filepath, ' moved to ', target_filepath)
+    elif os.path.exists(target_filepath):
+        # compare file
+        if source_filepath.lower().endswith('jpg') or source_filepath.lower().endswith('png'):
+            del_filepath = os.path.join(work_dir, '..', '00-to_delete', f)
+            del_dir = os.path.dirname(del_filepath)
+            if not os.path.isdir(del_dir):
+                os.makedirs(del_dir)
+            shutil.move(source_filepath, del_filepath)
+            print(source_filepath + ' moved to ' + del_filepath)
 
-filename=filepath
-songname = decoder.path_to_songname(filepath)
-song_hash = decoder.unique_hash(filepath)
-song_name = song_name or songname
-# don't refingerprint already fingerprinted files
-song_name, hashes, file_hash = _fingerprint_worker(
-    filepath,
-    limit,
-    song_name=song_name
-)
+        elif dejavuV2.file_matches(source_filepath, target_filepath, limit=5):
+            #val = input('Delete source [Y/n]')
+            #if val.lower() == 'y':
+            del_filepath = os.path.join(work_dir, '..', '00-to_delete', f)
+            del_dir = os.path.dirname(del_filepath)
+            if not os.path.isdir(del_dir):
+                os.makedirs(del_dir)
+            shutil.move(source_filepath, del_filepath)
+            print(source_filepath + ' moved to ' + del_filepath)
+        else:
+            del_filepath = os.path.join(work_dir, '..', '00-to_check', f)
+            del_dir = os.path.dirname(del_filepath)
+            if not os.path.isdir(del_dir):
+                os.makedirs(del_dir)
+            shutil.move(source_filepath, del_filepath)
+            print(source_filepath + ' moved to ' + del_filepath)
+    else:
+        shutil.move(source_filepath, target_filepath)
+        print(source_filepath, ' moved to ', target_filepath)

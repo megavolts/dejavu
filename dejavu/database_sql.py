@@ -1,8 +1,10 @@
 
-from itertools import zip_longest
 import queue
+from itertools import zip_longest
+
 import pandas as pd
-from dejavu.database import Database
+
+from dejavuV2 import Database
 
 
 class SQLDatabase(pd.DataFrame):

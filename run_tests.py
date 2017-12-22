@@ -1,9 +1,10 @@
-from dejavu.testing import *
-from dejavu import Dejavu
-from optparse import OptionParser
-import matplotlib.pyplot as plt
-import time
 import shutil
+import time
+from optparse import OptionParser
+
+import matplotlib.pyplot as plt
+
+from dejavuV2 import *
 
 usage = "usage: %prog [options] TESTING_AUDIOFOLDER"
 parser = OptionParser(usage=usage, version="%prog 1.1")
