@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="f0b1483a-1964-4843-a6fc-36936a18e9b2" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/clean_folder.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cleanfolder.py" afterPath="$PROJECT_DIR$/cleanfolder.py" />
     </list>
@@ -18,8 +17,8 @@
       <file leaf-file-name="cleanfolder.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/cleanfolder.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="138">
-              <caret line="68" column="44" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="93" selection-end-column="0" />
+            <state relative-caret-position="510">
+              <caret line="66" column="143" lean-forward="false" selection-start-line="66" selection-start-column="143" selection-end-line="66" selection-end-column="143" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
               </folding>
@@ -285,7 +284,14 @@
       <option name="project" value="LOCAL" />
       <updated>1513983624590</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="pythonThreezed">
+      <created>1514600331027</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1514600331027</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -680,6 +686,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="34">
           <caret line="2" column="3" lean-forward="false" selection-start-line="2" selection-start-column="3" selection-end-line="2" selection-end-column="3" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -703,8 +710,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/cleanfolder.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="138">
-          <caret line="68" column="44" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="93" selection-end-column="0" />
+        <state relative-caret-position="510">
+          <caret line="66" column="143" lean-forward="false" selection-start-line="66" selection-start-column="143" selection-end-line="66" selection-end-column="143" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
           </folding>

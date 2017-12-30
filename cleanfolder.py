@@ -64,7 +64,7 @@ for f in sorted(flist):
         if source_filepath == target_filepath:
             print(f + ' is identical to target')
             pass
-        elif source_filepath.lower().endswith(('jpg', 'jpeg', 'png', 'm3u', 'wpl', 'zpl', 'db', 'ncd', 'txt', 'm4p', 'cue', 'zip', 'md5')):
+        elif source_filepath.lower().endswith(('jpg', 'jpeg', 'png', 'm3u', 'wpl', 'zpl', 'db', 'ncd', 'txt', 'm4p', 'cue', 'zip', 'md5', 'bmp')):
             del_filepath = os.path.join(work_dir, '..', '00-to_delete', f)
             del_dir = os.path.dirname(del_filepath)
             if not os.path.isdir(del_dir):
