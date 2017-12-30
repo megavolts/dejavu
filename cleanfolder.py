@@ -50,7 +50,7 @@ def detox(val):
     return val
 
 
-for f in flist:
+for f in sorted(flist):
     source_filepath = os.path.join(work_dir, f)
     target_filepath = os.path.join(work_dir, detox(f))
     target_dirpath = os.path.dirname(target_filepath)
@@ -60,14 +60,17 @@ for f in flist:
         shutil.move(source_filepath, target_filepath)
         print(source_filepath, ' moved to ', target_filepath)
     elif os.path.exists(target_filepath):
-        # compare file
-        if source_filepath.lower().endswith('jpg') or source_filepath.lower().endswith('png'):
+        # do not compare the same file:
+        if source_filepath == target_filepath:
+            print(f + ' is identical to target')
+            pass
+        elif source_filepath.lower().endswith(('jpg', 'jpeg', 'png', 'm3u', 'wpl', 'zpl', 'db', 'ncd', 'txt', 'm4p', 'cue', 'zip', 'md5')):
             del_filepath = os.path.join(work_dir, '..', '00-to_delete', f)
             del_dir = os.path.dirname(del_filepath)
             if not os.path.isdir(del_dir):
                 os.makedirs(del_dir)
             shutil.move(source_filepath, del_filepath)
-            print(source_filepath + ' moved to ' + del_filepath)
+            print(f + ' moved for conservation to  ' + del_filepath)
 
         elif dejavuV2.file_matches(source_filepath, target_filepath, limit=5):
             #val = input('Delete source [Y/n]')
@@ -77,14 +80,14 @@ for f in flist:
             if not os.path.isdir(del_dir):
                 os.makedirs(del_dir)
             shutil.move(source_filepath, del_filepath)
-            print(source_filepath + ' moved to ' + del_filepath)
+            print(f + ' moved for suppression to  ' + del_filepath)
         else:
             del_filepath = os.path.join(work_dir, '..', '00-to_check', f)
             del_dir = os.path.dirname(del_filepath)
             if not os.path.isdir(del_dir):
                 os.makedirs(del_dir)
             shutil.move(source_filepath, del_filepath)
-            print(source_filepath + ' moved to ' + del_filepath)
+            print(f + ' moved for control to  ' + del_filepath)
     else:
         shutil.move(source_filepath, target_filepath)
-        print(source_filepath, ' moved to ', target_filepath)
+        print(f, ' moved to ', target_filepath)
