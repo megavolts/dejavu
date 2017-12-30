@@ -2,6 +2,7 @@ import os
 import shutil
 import dejavuV2
 import json
+import hashlib
 import logging
 
 import unicodedata
@@ -64,14 +65,25 @@ for f in sorted(flist):
         if source_filepath == target_filepath:
             print(f + ' is identical to target')
             pass
-        elif source_filepath.lower().endswith(('jpg', 'jpeg', 'png', 'm3u', 'wpl', 'zpl', 'db', 'ncd', 'txt', 'm4p', 'cue', 'zip', 'md5', 'bmp')):
-            del_filepath = os.path.join(work_dir, '..', '00-to_delete', f)
-            del_dir = os.path.dirname(del_filepath)
-            if not os.path.isdir(del_dir):
-                os.makedirs(del_dir)
-            shutil.move(source_filepath, del_filepath)
-            print(f + ' moved for conservation to  ' + del_filepath)
-
+        elif source_filepath.lower().endswith(('jpg', 'jpeg', 'png', 'm3u', 'wpl', 'zpl', 'db', 'ncd', 'txt', 'm4p', 'cue', 'zip', 'md5', 'bmp', 'sfv')):
+            source_hash = hashlib.sha1()
+            with open(source_filepath, 'rb') as sfile:
+                buf = sfile.read()
+                source_hash.update(buf)
+            target_hash = hashlib.sha1()
+            with open(target_filepath, 'rb') as tfile:
+                buf = tfile.read()
+                target_hash.update(buf)
+            if target_hash.hexdigest() == source_hash.hexdigest():
+                del_filepath = os.path.join(work_dir, '..', '00-to_delete', f)
+                del_dir = os.path.dirname(del_filepath)
+                if not os.path.isdir(del_dir):
+                    os.makedirs(del_dir)
+                shutil.move(source_filepath, del_filepath)
+                print(f + ' moved for suppression to  ' + del_filepath)
+            else:
+                shutil.move(source_filepath, target_filepath)
+                print(f, ' moved to ', target_filepath)
         elif dejavuV2.file_matches(source_filepath, target_filepath, limit=5):
             #val = input('Delete source [Y/n]')
             #if val.lower() == 'y':
