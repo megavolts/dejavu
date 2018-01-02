@@ -1,15 +1,14 @@
 import os
+import json
+import pandas as pd
 import shutil
 import dejavuV2
-import json
 import hashlib
-import logging
 
 import unicodedata
 import re
-
-
 import logging.config
+
 # Enable logging
 LOG_CFG = 'logging.json'
 if os.path.exists(LOG_CFG):
@@ -21,85 +20,165 @@ else:
 
 logger = logging.getLogger(__name__)
 
-work_dir = '/home/megavolts/media/Music/0-to_sort/'
-#work_dir = '/run/media/megavolts/UNIMAK-1to/musics/0-sorted'
-flist = []
+working_directory = '/run/media/megavolts/CHUGINADAK/musics/'
 
-for root, dirs, files in os.walk(work_dir, topdown=False):
-    for f in files:
-        rel_path = os.path.relpath(root, work_dir)
-        if f in ['desktop.ini', '.directory']:
-            abs_filepath = os.path.join(root, f)
-            os.remove(abs_filepath)
-            logger.info('Removing %s' % abs_filepath)
-        if f[0] == '.':
-            abs_filepath = os.path.join(root, f)
-            os.remove(abs_filepath)
-            logger.info('Removing %s' % abs_filepath)
+
+def list_relpath(working_directory):
+    file_set = set()
+    for root, dirs, files in os.walk(working_directory, topdown=False):
+        for f in files:
+            rel_path = os.path.relpath(root, working_directory)
+            file_set.add(os.path.join(rel_path, f))
+    return sorted(file_set)
+
+
+def list_abspath(working_directory):
+    file_set = set()
+    for root, _, files in os.walk(working_directory, topdown=False):
+        for f in files:
+            file_set.add(os.path.join(root, f))
+    return sorted(file_set)
+
+
+def list_subdir(working_directory, lowest=False):
+    flist = set()
+    for root, dirs, files in os.walk(working_directory, topdown=False):
+        if lowest:
+            if files and not dirs:
+                flist.add(root)
         else:
-            flist.append(os.path.join(rel_path, f))
+            for dir in dirs:
+                flist.add(os.path.join(root, dir))
+    return sorted(flist)
 
 
-def detox(val):
+def clean_dir(file_set, working_directory):
+    for file in file_set:
+        if file.split('/')[-1] in ['desktop.ini', '.working_directory']:
+            os.remove(os.path.abspath(os.path.join(working_directory, file)))
+            logger.info('Removing %s' % file)
+            file_set.remove(file)
+        elif file.split('/')[-1][0] == '.':
+            os.remove(os.path.abspath(os.path.join(working_directory, file)))
+            logger.info('Removing %s' % file)
+            file_set.remove(file)
+        elif '.trash-' in file or '.Trash' in file:
+            os.remove(os.path.abspath(os.path.join(working_directory, file)))
+            logger.info('Removing %s' % file)
+            file_set.remove(file)
+    return file_set
+
+
+def detox(string_value):
     """
     Normalizes string, converts to lowercase, removes non-alpha characters, but keep period (. and slahs)
     and converts spaces to hyphens.
     """
 
-    val = unicodedata.normalize('NFKD', val).encode('ascii', 'ignore').decode().lower().replace(" ", "_")
-    val = re.sub('[^\w\s(?./)-]', '_', val).strip().lower().replace("_-_", "-")
-    return val
+    string_value = unicodedata.normalize('NFKD', string_value).encode('ascii', 'ignore').decode().lower().replace(" ", "_")
+    string_value = re.sub('[^\w\s(?./)-]', '_', string_value).strip().lower().replace("_-_", "-")
+    return string_value
 
 
-for f in sorted(flist):
-    source_filepath = os.path.join(work_dir, f)
-    target_filepath = os.path.join(work_dir, detox(f))
-    target_dirpath = os.path.dirname(target_filepath)
-
-    if not os.path.isdir(target_dirpath):  # create a directory if there is none
-        os.makedirs(target_dirpath)
-        shutil.move(source_filepath, target_filepath)
-        print(source_filepath, ' moved to ', target_filepath)
-    elif os.path.exists(target_filepath):
-        # do not compare the same file:
-        if source_filepath == target_filepath:
-            print(f + ' is identical to target')
-            pass
-        elif source_filepath.lower().endswith(('jpg', 'jpeg', 'png', 'm3u', 'wpl', 'zpl', 'db', 'ncd', 'txt', 'm4p', 'cue', 'zip', 'md5', 'bmp', 'sfv')):
-            source_hash = hashlib.sha1()
-            with open(source_filepath, 'rb') as sfile:
-                buf = sfile.read()
-                source_hash.update(buf)
-            target_hash = hashlib.sha1()
-            with open(target_filepath, 'rb') as tfile:
-                buf = tfile.read()
-                target_hash.update(buf)
-            if target_hash.hexdigest() == source_hash.hexdigest():
-                del_filepath = os.path.join(work_dir, '..', '00-to_delete', f)
-                del_dir = os.path.dirname(del_filepath)
-                if not os.path.isdir(del_dir):
-                    os.makedirs(del_dir)
-                shutil.move(source_filepath, del_filepath)
-                print(f + ' moved for suppression to  ' + del_filepath)
-            else:
-                shutil.move(source_filepath, target_filepath)
-                print(f, ' moved to ', target_filepath)
-        elif dejavuV2.file_matches(source_filepath, target_filepath, limit=5):
-            #val = input('Delete source [Y/n]')
-            #if val.lower() == 'y':
-            del_filepath = os.path.join(work_dir, '..', '00-to_delete', f)
-            del_dir = os.path.dirname(del_filepath)
-            if not os.path.isdir(del_dir):
-                os.makedirs(del_dir)
-            shutil.move(source_filepath, del_filepath)
-            print(f + ' moved for suppression to  ' + del_filepath)
-        else:
-            del_filepath = os.path.join(work_dir, '..', '00-to_check', f)
-            del_dir = os.path.dirname(del_filepath)
-            if not os.path.isdir(del_dir):
-                os.makedirs(del_dir)
-            shutil.move(source_filepath, del_filepath)
-            print(f + ' moved for control to  ' + del_filepath)
+def is_music(file):
+    if file.lower().endswith(('jpg', 'jpeg', 'png', 'm3u', 'wpl', 'zpl', 'db', 'ncd', 'txt', 'm4p', 'cue', 'zip',
+                              'md5', 'bmp', 'sfv', 'pamp', 'pdf', 'jpe')):
+        return False
     else:
-        shutil.move(source_filepath, target_filepath)
-        print(f, ' moved to ', target_filepath)
+        return True
+
+
+def delete_files(rel_filepath, working_directory, dirname='00-to_delete'):
+    del_filepath = os.path.join(working_directory, '..', dirname,
+                                os.path.join(os.path.relpath(rel_filepath, working_directory)))
+    del_dir = os.path.dirname(del_filepath)
+    if not os.path.isdir(del_dir):
+        os.makedirs(del_dir)
+    shutil.move(rel_filepath, del_filepath)
+    logger.info(file.split('/')[-1] + ' deleted to ' + del_filepath)
+
+
+def hash_file(filepath, hashdb=None):
+    hashes = hashlib.sha1()
+    with open(filepath, 'rb') as fpair:
+        hashes.update(fpair.read())
+
+    if hashdb is None:
+        hashdb = pd.DataFrame(columns=['hash', 'sid'])
+
+    if hashes.hexdigest() in hashdb['hash'].tolist():
+        duplicate = filepath
+    else:
+        hashdb = hashdb.append({'hash': hashes.hexdigest(), 'sid': filepath}, ignore_index=True)
+        duplicate = None
+    logger.debug("%d in %s" % (hashdb.__len__(), filepath))
+    return hashdb, duplicate
+
+
+def hash_match(source, target):
+    hashlist = []
+    for file in [source, target]:
+        temp_hash = hashlib.sha1()
+        with open(file, 'rb') as fpair:
+            temp_hash.update(fpair.read())
+            hashlist.append(temp_hash)
+    if hashlist[0].hexdigest() == hashlist[1].hexdigest():
+        return True
+    else:
+        return False
+
+
+logging.info('detoxing file name')
+file_set = list_relpath(working_directory)
+file_set = clean_dir(file_set, working_directory)
+for file in file_set:
+    source = os.path.join(working_directory, file)
+    target = os.path.join(working_directory, detox(file))
+    target_dir = os.path.dirname(target)
+    if not os.path.isdir(target_dir):  # create a working_directory if there is none
+        os.makedirs(target_dir)
+        shutil.move(source, target)
+        logging.info(file + ' moved to ' + target)
+    elif not os.path.exists(target):
+        shutil.move(source, target)
+        logging.info(file + ' moved to ' + target)
+    elif source == target:
+        logging.info(file + ' is identical to target')
+        pass
+    elif not is_music(source):
+        if hash_match(source, target):
+            delete_files(source, working_directory, dirname='00-to_delete')
+        else:
+            shutil.move(source, target)
+            logging.info(file, ' moved to ', target)
+    elif dejavuV2.file_matches(source, target, limit=1):
+        logging.info(source.split('/')[-1] + ' is similar to ' + target.split('/')[-1])
+        delete_files(source, working_directory, dirname='00-to_delete')
+    else:
+        delete_files(source, working_directory, dirname='00-to_check')
+
+logging.info("CLEANING TREE")
+for directory, dirs, _ in os.walk(working_directory, topdown=False):
+    logger.info(directory)
+    if not dirs:
+        dirname = '00-to_delete'
+    else:
+        dirname = '00-to_check'
+    flist = list_abspath(directory)
+    fgdb = None
+    hashdb = None
+    for file in flist:
+        if not(os.path.exists(file)):
+            logging.info(file + ' does not exist')
+        elif is_music(file):
+            fgdb, duplicate = dejavuV2.fingerprint_db(file, fgdb=fgdb, limit=2)
+            if duplicate is None:
+                logger.info(file.split('/')[-1] + ' preserved')
+            else:
+                delete_files(file, working_directory, dirname=dirname)
+        else:
+            hashdb, duplicate = hash_file(file, hashdb)
+            if duplicate is None:
+                logger.info(file.split('/')[-1] + ' preserved')
+            else:
+                delete_files(file, working_directory, dirname=dirname)

@@ -2,7 +2,7 @@
     "disable_existing_loggers": false,
     "formatters": {
         "simple": {
-            "format": "%(asctime)s - %(name)s:%(funcName)s - %(levelname)s - %(message)s"
+            "format": "%(levelname)s - %(message)s"
         }
     },
 
@@ -44,7 +44,7 @@
     },
 
     "root": {
-        "level": "WARNING",
+        "level": "INFO",
         "handlers": ["console", "info_file_handler", "error_file_handler"]
     }
 }

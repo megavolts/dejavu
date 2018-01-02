@@ -28,7 +28,7 @@ def _fingerprint_worker(filename, limit=None, song_name=None):
 
     for channeln, channel in enumerate(channels):
         # TODO: Remove prints or change them into optional logging.
-        logger.info("Fingerprinting channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
+        logger.debug("Fingerprinting channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
         hashes = fingerprint.fingerprint(channel, Fs=Fs)
         logger.debug("Finished channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
         result |= set(hashes)
@@ -92,17 +92,70 @@ def return_matches(fgdb, hashes):
             yield(row[1]['sid'], row[1]['offset']-mapper[hash])
 
 
-def align_matches(matches):
-    """
-        Finds hash matches that align in time with other matches and finds
-        consensus about which hashes are "true" signal from the audio.
+def file_matches(source_filepath, target_filepath, limit=None):
+    _, hashes_source, _ = fingerprint_file(source_filepath, limit=limit)
+    _, hashes_target, _ = fingerprint_file(target_filepath, limit=limit)
+    logger = logging.getLogger(__name__)
 
-        Returns a dictionary with match information.
-    """
+    fgdb = pd.DataFrame(columns=['hash', 'sid', 'offset'])
+    for hash, offset in hashes_target:
+        fgdb = fgdb.append({'hash': hash, 'sid': 0, 'offset': offset}, ignore_index=True)
+    logger.debug("%d in %s" % (fgdb.__len__(), source_filepath))
+
+    matches = return_matches(fgdb, hashes_source)
+
     # align by diffs
     diff_counter = {}
-    largest = 0
-    largest_count = 0
+    for tup in matches:
+        sid, diff= tup
+        if diff not in diff_counter:
+            diff_counter[diff] = 0
+        diff_counter[diff] +=1
+
+    count = 0
+    for diff in diff_counter:
+        if -25 < diff < 25:
+            count += diff_counter[diff]
+
+    if sum(diff_counter.values()) == 0:
+        return 0
+    elif sum(diff_counter.values()) <= 50*limit and count/sum(diff_counter.values()) > 0.95:
+        return 1
+    elif sum(diff_counter.values()) <= 100*limit and count/sum(diff_counter.values()) > 0.9:
+        return 1
+    if sum(diff_counter.values()) > 100*limit:
+        return 1
+    else:
+        return 0
+
+
+def fingerprint_db(filepath, fgdb=None, limit=None):
+    logger = logging.getLogger(__name__)
+    # if limit < 3:
+    #     limit = 3
+    #     logger.warning('limit set to the minimum of 3 seconds')
+    _, hashes, _ = fingerprint_file(filepath, limit=limit)
+
+    if fgdb is None:
+        fgdb = pd.DataFrame(columns=['hash', 'sid', 'offset'])
+
+    res = match_fingerprint_db(fgdb, hashes, limit=limit)
+    if res.__len__() > 0:
+        duplicate = filepath
+        logger.info(filepath.split('/')[-1] +' matched fingerprint with ' + '., '.join(res))
+    else:
+        for hash, offset in hashes:
+            fgdb = fgdb.append({'hash': hash, 'sid': filepath, 'offset': offset}, ignore_index=True)
+        duplicate = None
+    logger.debug("%d in %s" % (fgdb.__len__(), filepath))
+    return fgdb, duplicate
+
+
+def match_fingerprint_db(fgdb, hashes, limit):
+    matches = return_matches(fgdb, hashes)
+
+    # align by diffs
+    diff_counter = {}
     for tup in matches:
         sid, diff = tup
         if diff not in diff_counter:
@@ -111,34 +164,19 @@ def align_matches(matches):
             diff_counter[diff][sid] = 0
         diff_counter[diff][sid] += 1
 
-        if diff_counter[diff][sid] > largest_count:
-            largest = diff
-            largest_count = diff_counter[diff][sid]
+    count = {}
+    for diff in diff_counter:
+        for sid in diff_counter[diff]:
+            #if -25 < diff_counter[diff][sid] < 25:
+            if sid not in count:
+                count[sid] = 0
+            count[sid] += diff_counter[diff][sid]
 
-    song_id = []
-    if diff_counter.__len__() > 0:
-        for sid in diff_counter[largest]:
-            diff_counter[largest][sid] = max(diff_counter[largest].values())
-            song_id.append(sid)
-    return song_id
-
-
-def file_matches(source_filepath, target_filepath, limit=None):
-    _, hashes_source, _ = fingerprint_file(source_filepath, limit=limit)
-    _, hashes_target, _ = fingerprint_file(target_filepath, limit=limit)
-    logger = logging.getLogger(__name__)
-
-    fgdb = pd.DataFrame(columns=['hash', 'sid', 'offset'])
-    logger.info("%d in %s" % (fgdb.__len__(), source_filepath))
-    for hash, offset in hashes_target:
-        fgdb = fgdb.append({'hash': hash, 'sid': 0, 'offset': offset}, ignore_index=True)
-
-    matches = return_matches(fgdb, hashes_source)
-    match = align_matches(matches)
-    if match.__len__() == 0:
-        return 0
-    else:
-        return 1
+    res = []
+    for sid in count:
+        if count[sid] > max(10, 5*limit):
+            res.append(sid)
+    return res
 
 # source = '/home/megavolts/git/dejavu/mp3/sample/air/The Virgin Suicides/01 Air feat. Gordon Tracks - Playground Love.mp3'
 # target = '/home/megavolts/git/dejavu/mp3/sample/air/The Virgin Suicides/05 Air - Dark Messages.mp3'
