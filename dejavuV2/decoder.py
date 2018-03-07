@@ -5,6 +5,7 @@ from pydub import AudioSegment
 from pydub.utils import audioop
 from . import wavio
 from hashlib import sha1
+import logging
 
 def unique_hash(filepath, blocksize=2**20):
     """ Small function to generate a hash to uniquely generate
@@ -46,20 +47,29 @@ def read(filename, limit=None):
 
     returns: (channels, samplerate)
     """
+    logger = logging.getLogger(__name__)
+
     # pydub does not support 24-bit wav files, use wavio when this occurs
     try:
-        audiofile = AudioSegment.from_file(filename)
+        try:
+            audiofile = AudioSegment.from_file(filename)
+        except Exception as ex:
+            #print(filename, ex.args)
+            #TODO replace by a logger
+            logger.warning(filename, ex.args)
+            return 0, 0, 0
+        else:
+            if limit:
+                audiofile = audiofile[:limit * 1000]
 
-        if limit:
-            audiofile = audiofile[:limit * 1000]
+            data = np.fromstring(audiofile._data, np.int16)
 
-        data = np.fromstring(audiofile._data, np.int16)
+            channels = []
+            for chn in range(audiofile.channels):
+                channels.append(data[chn::audiofile.channels])
 
-        channels = []
-        for chn in range(audiofile.channels):
-            channels.append(data[chn::audiofile.channels])
+            fs = audiofile.frame_rate
 
-        fs = audiofile.frame_rate
     except audioop.error:
         fs, _, audiofile = wavio.readwav(filename)
 

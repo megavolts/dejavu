@@ -16,12 +16,13 @@ if os.path.exists(LOG_CFG):
         config = json.load(f)
     logging.config.dictConfig(config)
 else:
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.warning)
 
 logger = logging.getLogger(__name__)
 
-working_directory = '/run/media/megavolts/CHUGINADAK/musics/'
-
+#working_directory = '/run/media/megavolts/CHUGINADAK/musics/'
+working_directory = '/home/megavolts/media/musics/0-to_sort/a/'
+#working_directory = '/home/megavolts/Desktop/test/'
 
 def list_relpath(working_directory):
     file_set = set()
@@ -40,9 +41,9 @@ def list_abspath(working_directory):
     return sorted(file_set)
 
 
-def list_subdir(working_directory, lowest=False):
+def list_subdir(working_directory, lowest=False, topdown=False):
     flist = set()
-    for root, dirs, files in os.walk(working_directory, topdown=False):
+    for root, dirs, files in os.walk(working_directory, topdown=topdown):
         if lowest:
             if files and not dirs:
                 flist.add(root)
@@ -82,7 +83,7 @@ def detox(string_value):
 
 def is_music(file):
     if file.lower().endswith(('jpg', 'jpeg', 'png', 'm3u', 'wpl', 'zpl', 'db', 'ncd', 'txt', 'm4p', 'cue', 'zip',
-                              'md5', 'bmp', 'sfv', 'pamp', 'pdf', 'jpe')):
+                              'md5', 'bmp', 'sfv', 'pamp', 'pdf', 'jpe', 'gif', 'pls', 'log')):
         return False
     else:
         return True
@@ -111,7 +112,7 @@ def hash_file(filepath, hashdb=None):
     else:
         hashdb = hashdb.append({'hash': hashes.hexdigest(), 'sid': filepath}, ignore_index=True)
         duplicate = None
-    logger.debug("%d in %s" % (hashdb.__len__(), filepath))
+    logger.info("%d in %s" % (hashdb.__len__(), filepath))
     return hashdb, duplicate
 
 
@@ -148,9 +149,11 @@ for file in file_set:
     elif not is_music(source):
         if hash_match(source, target):
             delete_files(source, working_directory, dirname='00-to_delete')
-        else:
+        else:  # rename file
+            filename, file_extension = os.path.splitext(target)
+            target = filename + '_1' + file_extension
             shutil.move(source, target)
-            logging.info(file, ' moved to ', target)
+            logging.info(file + ' moved to ' + target)
     elif dejavuV2.file_matches(source, target, limit=1):
         logging.info(source.split('/')[-1] + ' is similar to ' + target.split('/')[-1])
         delete_files(source, working_directory, dirname='00-to_delete')
@@ -158,21 +161,27 @@ for file in file_set:
         delete_files(source, working_directory, dirname='00-to_check')
 
 logging.info("CLEANING TREE")
+
+dirlist = list_subdir(os.path.join(working_directory, '0-to_sort'), topdown=False)
+
+
 for directory, dirs, _ in os.walk(working_directory, topdown=False):
     logger.info(directory)
+    flist = list_abspath(directory)
     if not dirs:
         dirname = '00-to_delete'
     else:
         dirname = '00-to_check'
-    flist = list_abspath(directory)
     fgdb = None
     hashdb = None
     for file in flist:
         if not(os.path.exists(file)):
             logging.info(file + ' does not exist')
         elif is_music(file):
-            fgdb, duplicate = dejavuV2.fingerprint_db(file, fgdb=fgdb, limit=2)
-            if duplicate is None:
+            fgdb, duplicate = dejavuV2.fingerprint_db(file, fgdb=fgdb, limit=5)
+            if duplicate == 0:
+                logger.info(file.split('/')[-1] + ' preserved')
+            elif duplicate is None:
                 logger.info(file.split('/')[-1] + ' preserved')
             else:
                 delete_files(file, working_directory, dirname=dirname)
@@ -182,3 +191,6 @@ for directory, dirs, _ in os.walk(working_directory, topdown=False):
                 logger.info(file.split('/')[-1] + ' preserved')
             else:
                 delete_files(file, working_directory, dirname=dirname)
+    if os.path.dirname(directory) == os.path.join(working_directory, '0-to_sort'):
+        shutil.move(directory, os.path.join(working_directory, '/mnt/data/media/musics/00-sorted/', os.path.basename(directory)))
+        logger.info("move %s to 00-sorted" % directory)

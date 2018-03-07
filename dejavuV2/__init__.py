@@ -23,17 +23,20 @@ def _fingerprint_worker(filename, limit=None, song_name=None):
     songname, extension = os.path.splitext(os.path.basename(filename))
     song_name = song_name or songname
     channels, Fs, file_hash = decoder.read(filename, limit=limit)
-    result = set()
-    channel_amount = len(channels)
+    if channels != 0 and Fs != 0 and file_hash != 0:
+        result = set()
+        channel_amount = len(channels)
 
-    for channeln, channel in enumerate(channels):
-        # TODO: Remove prints or change them into optional logging.
-        logger.debug("Fingerprinting channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
-        hashes = fingerprint.fingerprint(channel, Fs=Fs)
-        logger.debug("Finished channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
-        result |= set(hashes)
+        for channeln, channel in enumerate(channels):
+            # TODO: Remove prints or change them into optional logging.
+            logger.debug("Fingerprinting channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
+            hashes = fingerprint.fingerprint(channel, Fs=Fs)
+            logger.debug("Finished channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
+            result |= set(hashes)
 
-    return song_name, result, file_hash
+        return song_name, result, file_hash
+    else:
+        return 0, 0, 0
 
 
 def fingerprint_file(filepath, limit=None, song_name=None):
@@ -136,19 +139,23 @@ def fingerprint_db(filepath, fgdb=None, limit=None):
     #     logger.warning('limit set to the minimum of 3 seconds')
     _, hashes, _ = fingerprint_file(filepath, limit=limit)
 
-    if fgdb is None:
-        fgdb = pd.DataFrame(columns=['hash', 'sid', 'offset'])
+    if hashes != 0:
 
-    res = match_fingerprint_db(fgdb, hashes, limit=limit)
-    if res.__len__() > 0:
-        duplicate = filepath
-        logger.info(filepath.split('/')[-1] +' matched fingerprint with ' + '., '.join(res))
+        if fgdb is None:
+            fgdb = pd.DataFrame(columns=['hash', 'sid', 'offset'])
+
+        res = match_fingerprint_db(fgdb, hashes, limit=limit)
+        if res.__len__() > 0:
+            duplicate = filepath
+            logger.info(filepath.split('/')[-1] +' matched fingerprint with ' + '., '.join(res))
+        else:
+            for hash, offset in hashes:
+                fgdb = fgdb.append({'hash': hash, 'sid': filepath, 'offset': offset}, ignore_index=True)
+            duplicate = None
+        logger.debug("%d in %s" % (fgdb.__len__(), filepath))
+        return fgdb, duplicate
     else:
-        for hash, offset in hashes:
-            fgdb = fgdb.append({'hash': hash, 'sid': filepath, 'offset': offset}, ignore_index=True)
-        duplicate = None
-    logger.debug("%d in %s" % (fgdb.__len__(), filepath))
-    return fgdb, duplicate
+        return fgdb, 0
 
 
 def match_fingerprint_db(fgdb, hashes, limit):
